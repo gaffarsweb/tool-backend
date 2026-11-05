@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"c:/Users/Lenovo/Desktop/tool/\" 2>&1; echo \"---\"; ls -la \"c:/Users/Lenovo/Desktop/tool/tool-backend/\" 2>&1)",
+      "Read(//c/Users/Lenovo/Desktop/tool/**)",
+      "Read(//c/Users/Lenovo/Desktop/tool/tool-frontend/**)",
+      "Read(//c/Users/Lenovo/Desktop/tool/tool-adminui/**)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Lenovo\\\\Desktop\\\\tool\\\\stitch_omnitools_global_platform_ui\\\\\" -Directory | Select-Object Name)"
+    ]
+  }
+}
