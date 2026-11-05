@@ -56,6 +56,25 @@ export class UsersService {
     return { items: items.map((u) => this.toPublic(u)), total };
   }
 
+  async adminUpdate(
+    id: string,
+    patch: { role?: 'USER' | 'ADMIN'; deactivated?: boolean },
+  ): Promise<PublicProfile> {
+    await this.getById(id);
+    const data: Prisma.UserUpdateInput = {};
+    if (patch.role !== undefined) data.role = patch.role;
+    if (patch.deactivated !== undefined) {
+      data.deactivatedAt = patch.deactivated ? new Date() : null;
+    }
+    const user = await this.prisma.user.update({ where: { id }, data });
+    return this.toPublic(user);
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.getById(id);
+    await this.prisma.user.delete({ where: { id } });
+  }
+
   private toPublic(user: User): PublicProfile {
     return {
       id: user.id,
