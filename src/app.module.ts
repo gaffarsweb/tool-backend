@@ -15,6 +15,13 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PlansModule } from './modules/plans/plans.module';
 import { ContactModule } from './modules/contact/contact.module';
 import { UsageModule } from './modules/usage/usage.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { ToolsModule } from './modules/tools/tools.module';
+import { BlogModule } from './modules/blog/blog.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -45,6 +52,13 @@ import { UsageModule } from './modules/usage/usage.module';
     PlansModule,
     ContactModule,
     UsageModule,
+    CategoriesModule,
+    ToolsModule,
+    BlogModule,
+    SettingsModule,
+    SubscriptionsModule,
+    PaymentsModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
