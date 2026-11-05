@@ -12,6 +12,9 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PlansModule } from './modules/plans/plans.module';
+import { ContactModule } from './modules/contact/contact.module';
+import { UsageModule } from './modules/usage/usage.module';
 
 @Module({
   imports: [
@@ -39,6 +42,9 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     HealthModule,
     AuthModule,
     UsersModule,
+    PlansModule,
+    ContactModule,
+    UsageModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

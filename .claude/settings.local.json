@@ -12,7 +12,9 @@
       "Bash(echo \"ADMIN_EXIT=$?\")",
       "Bash(echo \"LINTFIX_EXIT=$?\")",
       "Bash(npm run *)",
-      "Bash(echo \"FE_EXIT=$?\")"
+      "Bash(echo \"FE_EXIT=$?\")",
+      "Bash(echo \"BE_EXIT=$?\")",
+      "Bash(echo \"EXIT=$?\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Lenovo\\Desktop\\tool\\tool-frontend",
