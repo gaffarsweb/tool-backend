@@ -1,0 +1,35 @@
+# deps
+node_modules/
+
+# build output
+dist/
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# env
+.env
+.env.*
+!.env.example
+
+# test / coverage
+coverage/
+.nyc_output/
+
+# editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# typescript
+*.tsbuildinfo
+
+# prisma
+prisma/*.db
+prisma/*.db-journal
+
+# uploads (dev)
+uploads/

@@ -1,0 +1,417 @@
+// Prisma schema — Phase 4 full domain model.
+// See docs/DATABASE_DESIGN.md for the design intent.
+// Conventions: cuid PKs, created/updatedAt on mutable tables, hard deletes except
+// where audited via AuditLog, Decimal for money.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- enums ----------
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  BUSINESS
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+  TRIALING
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  RAZORPAY
+  STRIPE
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContactStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  SPAM
+}
+
+enum ToolTier {
+  FREE
+  PRO
+  BUSINESS
+}
+
+enum VerificationPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+// ---------- identity ----------
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String
+  name              String
+  avatarUrl         String?
+  role              Role      @default(USER)
+  emailVerifiedAt   DateTime?
+  deactivatedAt     DateTime?
+  lastLoginAt       DateTime?
+  professionalRole  String?
+  timezone          String?   @default("UTC")
+  totpSecret        String?
+  totpEnabledAt     DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sessions           Session[]
+  verificationTokens VerificationToken[]
+  favorites          Favorite[]
+  toolUsages         ToolUsage[]
+  subscription       Subscription?
+  payments           Payment[]
+  blogPosts          BlogPost[]           @relation("BlogAuthor")
+  auditLogs          AuditLog[]           @relation("AuditActor")
+  handledContacts    ContactMessage[]     @relation("ContactHandler")
+
+  @@index([role])
+  @@map("users")
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String    @unique
+  userAgent        String?
+  ipAddress        String?
+  country          String?
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  id          String              @id @default(cuid())
+  userId      String
+  tokenHash   String              @unique
+  purpose     VerificationPurpose
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("verification_tokens")
+}
+
+// ---------- catalog ----------
+
+model Category {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  description     String
+  icon            String
+  color           String
+  orderIndex      Int      @default(0)
+  seoTitle        String?
+  seoDescription  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tools Tool[]
+
+  @@map("categories")
+}
+
+model Tool {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  name            String
+  description     String
+  longDescription String?
+  categoryId      String
+  icon            String
+  iconColor       String?
+  tier            ToolTier  @default(FREE)
+  isActive        Boolean   @default(true)
+  isFeatured      Boolean   @default(false)
+  isImplemented   Boolean   @default(false)
+  keywords        String[]
+  howToMarkdown   String?
+  faqsJson        Json?
+  seoTitle        String?
+  seoDescription  String?
+  orderIndex      Int       @default(0)
+  totalRuns       Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  category  Category    @relation(fields: [categoryId], references: [id])
+  favorites Favorite[]
+  usages    ToolUsage[]
+
+  @@index([categoryId, isActive])
+  @@index([isFeatured])
+  @@index([tier])
+  @@map("tools")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  toolId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tool Tool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, toolId])
+  @@map("favorites")
+}
+
+model ToolUsage {
+  id          String   @id @default(cuid())
+  userId      String?
+  toolId      String
+  executionMs Int?
+  success     Boolean  @default(true)
+  inputBytes  Int?
+  outputBytes Int?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tool Tool  @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@index([toolId, createdAt])
+  @@index([userId, createdAt])
+  @@map("tool_usages")
+}
+
+// ---------- subscriptions & payments ----------
+
+model Plan {
+  id            String           @id @default(cuid())
+  slug          String           @unique
+  name          String
+  tier          SubscriptionTier
+  priceMonthly  Decimal          @db.Decimal(12, 2)
+  priceAnnual   Decimal          @db.Decimal(12, 2)
+  currency      String           @default("INR")
+  features      String[]
+  limitsJson    Json
+  isActive      Boolean          @default(true)
+  orderIndex    Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  userId                 String             @unique
+  planId                 String
+  tier                   SubscriptionTier
+  status                 SubscriptionStatus
+  billingCycle           BillingCycle
+  currentPeriodStart     DateTime
+  currentPeriodEnd       DateTime
+  cancelAtPeriodEnd      Boolean            @default(false)
+  trialEndsAt            DateTime?
+  providerSubscriptionId String?
+  provider               PaymentProvider?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan     Plan      @relation(fields: [planId], references: [id])
+  payments Payment[]
+
+  @@index([status, currentPeriodEnd])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  userId            String
+  subscriptionId    String?
+  provider          PaymentProvider
+  providerPaymentId String
+  providerOrderId   String?
+  amount            Decimal         @db.Decimal(12, 2)
+  currency          String
+  status            PaymentStatus
+  method            String?
+  failureReason     String?
+  receiptUrl        String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@unique([provider, providerPaymentId])
+  @@index([userId, createdAt])
+  @@map("payments")
+}
+
+model WebhookEvent {
+  id          String          @id @default(cuid())
+  provider    PaymentProvider
+  eventId     String
+  eventType   String
+  processedAt DateTime        @default(now())
+  payloadJson Json
+
+  @@unique([provider, eventId])
+  @@map("webhook_events")
+}
+
+// ---------- content ----------
+
+model BlogCategory {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  description     String?
+  seoTitle        String?
+  seoDescription  String?
+  orderIndex      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  posts BlogPost[]
+
+  @@map("blog_categories")
+}
+
+model BlogPost {
+  id               String     @id @default(cuid())
+  slug             String     @unique
+  title            String
+  excerpt          String?
+  contentMarkdown  String
+  featuredImageUrl String?
+  authorId         String
+  categoryId       String
+  relatedToolIds   String[]
+  status           BlogStatus @default(DRAFT)
+  publishedAt      DateTime?
+  seoTitle         String?
+  seoDescription   String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  author   User         @relation("BlogAuthor", fields: [authorId], references: [id])
+  category BlogCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@map("blog_posts")
+}
+
+// ---------- site operations ----------
+
+model ContactMessage {
+  id                String        @id @default(cuid())
+  name              String
+  email             String
+  subject           String?
+  message           String
+  status            ContactStatus @default(NEW)
+  handledByUserId   String?
+  handledAt         DateTime?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime      @default(now())
+
+  handledBy User? @relation("ContactHandler", fields: [handledByUserId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("contact_messages")
+}
+
+model NewsletterSubscriber {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  confirmedAt     DateTime?
+  unsubscribedAt  DateTime?
+  source          String?
+  createdAt       DateTime  @default(now())
+
+  @@map("newsletter_subscribers")
+}
+
+model SiteSetting {
+  id                        String   @id @default("singleton")
+  siteName                  String   @default("TOOLS")
+  logoUrl                   String?
+  faviconUrl                String?
+  socialLinksJson           Json     @default("{}")
+  contactEmail              String?
+  contactPhone              String?
+  defaultSeoTitleTemplate   String   @default("%s · TOOLS")
+  defaultSeoDescription     String   @default("Free, fast, privacy-first online tools for every digital workflow.")
+  adsenseClientId           String?
+  updatedAt                 DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  action       String
+  resourceType String
+  resourceId   String?
+  beforeJson   Json?
+  afterJson    Json?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  @@index([actorUserId, createdAt])
+  @@index([resourceType, resourceId])
+  @@map("audit_logs")
+}
