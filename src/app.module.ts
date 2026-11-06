@@ -22,6 +22,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PremiumModule } from './modules/premium/premium.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { AdminModule } from './modules/admin/admin.module';
     SubscriptionsModule,
     PaymentsModule,
     AdminModule,
+    PremiumModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

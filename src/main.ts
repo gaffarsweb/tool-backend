@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import express from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
@@ -11,6 +12,8 @@ import { TypedConfigService } from './config/typed-config.service';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
+    // Give webhook routes access to the raw body for HMAC signature verification.
+    rawBody: true,
   });
 
   app.useLogger(app.get(Logger));
@@ -20,6 +23,14 @@ async function bootstrap(): Promise<void> {
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(compression());
   app.use(cookieParser());
+
+  // Preserve the raw body on webhook routes so adapters can verify the HMAC.
+  // Express's `verify` callback runs inside the json parser — we stash the raw
+  // string on the request for easy access in the controller.
+  app.use(
+    '/api/payments/webhook',
+    express.raw({ type: '*/*', verify: (req, _res, buf) => ((req as express.Request & { rawBody?: Buffer }).rawBody = buf) }),
+  );
 
   app.enableCors({
     origin: cfg.get('CORS_ORIGINS'),
